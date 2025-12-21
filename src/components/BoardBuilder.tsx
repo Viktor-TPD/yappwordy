@@ -23,9 +23,6 @@ interface QuestionData {
   answer: string;
 }
 
-// Always store as 200-1000, display as Question 1-5
-const STORED_VALUES = [200, 400, 600, 800, 1000];
-
 export function BoardBuilder({
   userId,
   existingBoard,
@@ -44,7 +41,7 @@ export function BoardBuilder({
     if (existingQuestions.length > 0) {
       const questionsMap: Record<string, QuestionData> = {};
       existingQuestions.forEach((q) => {
-        const key = `${q.category_index}-${q.point_value}`;
+        const key = `${q.category_index}-${q.row_number}`;
         questionsMap[key] = {
           question: q.question_text,
           answer: q.answer_text,
@@ -64,13 +61,11 @@ export function BoardBuilder({
     if (categories.length > 1) {
       const newCategories = categories.filter((_, i) => i !== index);
       setCategories(newCategories);
-
       const newQuestions = { ...questions };
-      STORED_VALUES.forEach((pv) => {
-        delete newQuestions[`${index}-${pv}`];
-      });
+      for (let row = 1; row <= 5; row++) {
+        delete newQuestions[`${index}-${row}`];
+      }
       setQuestions(newQuestions);
-
       if (activeCategory >= newCategories.length) {
         setActiveCategory(Math.max(0, newCategories.length - 1));
       }
@@ -85,11 +80,11 @@ export function BoardBuilder({
 
   const updateQuestionData = (
     categoryIndex: number,
-    pointValue: number,
+    rowNumber: number,
     field: keyof QuestionData,
     value: string
   ) => {
-    const key = `${categoryIndex}-${pointValue}`;
+    const key = `${categoryIndex}-${rowNumber}`;
     setQuestions((prev) => ({
       ...prev,
       [key]: {
@@ -105,7 +100,6 @@ export function BoardBuilder({
       alert("Please enter a board title");
       return;
     }
-
     const filledCategories = categories.filter((c) => c.trim());
     if (filledCategories.length === 0) {
       alert("Please enter at least one category");
@@ -113,10 +107,8 @@ export function BoardBuilder({
     }
 
     setIsSaving(true);
-
     try {
       let boardId = existingBoard?.id;
-
       if (existingBoard) {
         await updateBoard(existingBoard.id, {
           title,
@@ -124,9 +116,7 @@ export function BoardBuilder({
         });
       } else {
         const newBoard = await createBoard(userId, title, filledCategories);
-        if (!newBoard) {
-          throw new Error("Failed to create board");
-        }
+        if (!newBoard) throw new Error("Failed to create board");
         boardId = newBoard.id;
       }
 
@@ -136,26 +126,25 @@ export function BoardBuilder({
 
       const questionsList: Omit<Question, "id">[] = [];
       filledCategories.forEach((_, categoryIndex) => {
-        STORED_VALUES.forEach((pointValue) => {
-          const key = `${categoryIndex}-${pointValue}`;
+        for (let rowNumber = 1; rowNumber <= 5; rowNumber++) {
+          const key = `${categoryIndex}-${rowNumber}`;
           const data = questions[key];
           if (data?.question?.trim() && data?.answer?.trim()) {
             questionsList.push({
               board_id: boardId!,
               category_index: categoryIndex,
-              point_value: pointValue,
+              row_number: rowNumber,
               question_text: data.question,
               answer_text: data.answer,
-              is_daily_double: false, // Will be set randomly when game starts
+              is_daily_double: false,
             });
           }
-        });
+        }
       });
 
       if (questionsList.length > 0) {
         await createQuestions(questionsList);
       }
-
       router.push("/dashboard");
     } catch (error) {
       console.error("Error saving board:", error);
@@ -190,7 +179,6 @@ export function BoardBuilder({
             </button>
           )}
         </div>
-
         <div className={styles.categoriesList}>
           {categories.map((category, index) => (
             <div key={index} className={styles.categoryInput}>
@@ -205,7 +193,6 @@ export function BoardBuilder({
                 <button
                   onClick={() => removeCategory(index)}
                   className={styles.removeButton}
-                  aria-label="Remove category"
                 >
                   ×
                 </button>
@@ -218,7 +205,6 @@ export function BoardBuilder({
       {filledCategories.length > 0 && (
         <div className={styles.section}>
           <label className={styles.label}>QUESTIONS</label>
-
           <div className={styles.tabs}>
             {filledCategories.map((category, index) => (
               <button
@@ -234,28 +220,24 @@ export function BoardBuilder({
           </div>
 
           <div className={styles.questionsGrid}>
-            {STORED_VALUES.map((pointValue, idx) => {
-              const key = `${activeCategory}-${pointValue}`;
-              const data = questions[key] || {
-                question: "",
-                answer: "",
-              };
+            {[1, 2, 3, 4, 5].map((rowNumber) => {
+              const key = `${activeCategory}-${rowNumber}`;
+              const data = questions[key] || { question: "", answer: "" };
 
               return (
-                <div key={pointValue} className={styles.questionCard}>
+                <div key={rowNumber} className={styles.questionCard}>
                   <div className={styles.questionHeader}>
                     <span className={styles.pointValue}>
-                      Question {idx + 1}
+                      Question {rowNumber}
                     </span>
                   </div>
-
                   <div className={styles.questionInputs}>
                     <textarea
                       value={data.question}
                       onChange={(e) =>
                         updateQuestionData(
                           activeCategory,
-                          pointValue,
+                          rowNumber,
                           "question",
                           e.target.value
                         )
@@ -269,7 +251,7 @@ export function BoardBuilder({
                       onChange={(e) =>
                         updateQuestionData(
                           activeCategory,
-                          pointValue,
+                          rowNumber,
                           "answer",
                           e.target.value
                         )
@@ -298,7 +280,6 @@ export function BoardBuilder({
             ? "UPDATE BOARD"
             : "CREATE BOARD"}
         </button>
-
         <Link href="/dashboard" className={styles.cancelButton}>
           CANCEL
         </Link>

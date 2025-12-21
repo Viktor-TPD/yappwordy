@@ -11,77 +11,13 @@ export default async function RemotePage({
   const { userId } = await auth();
 
   if (!userId) {
-    redirect(`/sign-in?redirect=/remote/${params.pin}`);
+    redirect("/sign-in");
   }
 
   const session = await getGameSession(params.pin);
 
   if (!session) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "2rem",
-          textAlign: "center",
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "2rem",
-              color: "var(--jeopardy-gold)",
-              marginBottom: "1rem",
-            }}
-          >
-            Invalid Session PIN
-          </h1>
-          <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem" }}>
-            The session PIN "{params.pin}" was not found or has expired.
-          </p>
-          <a href="/dashboard" style={{ color: "var(--jeopardy-gold)" }}>
-            Return to Dashboard
-          </a>
-        </div>
-      </div>
-    );
-  }
-
-  if (session.user_id !== userId) {
-    return (
-      <div
-        style={{
-          minHeight: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          padding: "2rem",
-          textAlign: "center",
-        }}
-      >
-        <div>
-          <h1
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "2rem",
-              color: "var(--jeopardy-gold)",
-              marginBottom: "1rem",
-            }}
-          >
-            Unauthorized
-          </h1>
-          <p style={{ color: "var(--text-secondary)", marginBottom: "1.5rem" }}>
-            This game session belongs to another user.
-          </p>
-          <a href="/dashboard" style={{ color: "var(--jeopardy-gold)" }}>
-            Return to Dashboard
-          </a>
-        </div>
-      </div>
-    );
+    redirect("/dashboard");
   }
 
   const board = await getBoard(session.board_id);
@@ -91,7 +27,15 @@ export default async function RemotePage({
     redirect("/dashboard");
   }
 
+  const hasSecondRound = Boolean(session.second_board_id);
+
   return (
-    <RemoteControl session={session} board={board} questions={questions} />
+    <RemoteControl
+      session={session}
+      board={board}
+      questions={questions}
+      hasSecondRound={hasSecondRound}
+      sessionId={session.id}
+    />
   );
 }

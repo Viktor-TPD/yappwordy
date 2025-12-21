@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { PresentationView } from "@/components/PresentationView";
+import { RemoteControl } from "@/components/RemoteControl";
 import { Board, Question, GameSession, GameSettings } from "@/types";
 
 interface PlayPageClientProps {
@@ -24,6 +25,8 @@ export function PlayPageClient({
   const [processedQuestions, setProcessedQuestions] = useState<Question[]>([]);
   const [secondQuestions, setSecondQuestions] = useState<Question[]>([]);
   const [showSetup, setShowSetup] = useState(true);
+  const [showRoundTransition, setShowRoundTransition] = useState(false);
+  const [isRemoteView, setIsRemoteView] = useState(false);
 
   const [contestants, setContestants] = useState<
     Array<{ id: string; name: string; score: number }>
@@ -36,11 +39,7 @@ export function PlayPageClient({
     if (newContestantName.trim() && contestants.length < 5) {
       setContestants([
         ...contestants,
-        {
-          id: Date.now().toString(),
-          name: newContestantName.trim(),
-          score: 0,
-        },
+        { id: Date.now().toString(), name: newContestantName.trim(), score: 0 },
       ]);
       setNewContestantName("");
     }
@@ -57,17 +56,11 @@ export function PlayPageClient({
     if (!enabled) {
       return questionsArray.map((q) => ({ ...q, is_daily_double: false }));
     }
-
-    // Randomly select 1-2 questions per board to be Daily Doubles
     const modifiedQuestions = questionsArray.map((q) => ({
       ...q,
       is_daily_double: false,
     }));
-    const numDailyDoubles = Math.floor(Math.random() * 2) + 1; // 1 or 2
-
-    const categories = Array.from(
-      new Set(questionsArray.map((q) => q.category_index))
-    );
+    const numDailyDoubles = Math.floor(Math.random() * 2) + 1;
     const selectedIndices: number[] = [];
 
     for (let i = 0; i < numDailyDoubles; i++) {
@@ -82,7 +75,6 @@ export function PlayPageClient({
         attempts++;
       }
     }
-
     return modifiedQuestions;
   };
 
@@ -93,18 +85,15 @@ export function PlayPageClient({
     }
 
     try {
-      // Process questions with Daily Doubles
       const round1Questions = assignDailyDoubles(questions, enableDailyDoubles);
       setProcessedQuestions(round1Questions);
 
-      // Fetch second board if selected
       let round2Questions: Question[] = [];
       if (secondBoardId) {
         const [boardRes, questionsRes] = await Promise.all([
           fetch(`/api/board/${secondBoardId}`),
           fetch(`/api/questions/${secondBoardId}`),
         ]);
-
         if (boardRes.ok && questionsRes.ok) {
           const fetchedBoard = await boardRes.json();
           const fetchedQuestions = await questionsRes.json();
@@ -118,13 +107,11 @@ export function PlayPageClient({
       }
 
       const settings: GameSettings = {
-        point_mode: "single",
         enable_daily_doubles: enableDailyDoubles,
         contestants,
         current_round: 1,
       };
 
-      // Create game session
       const response = await fetch("/api/game/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -149,7 +136,31 @@ export function PlayPageClient({
     }
   };
 
+  const handleStartRound2 = () => {
+    // Show transition modal
+    setShowRoundTransition(true);
+  };
+
+  const startRound2 = () => {
+    if (gameSettings) {
+      // Update to Round 2 with preserved scores
+      setGameSettings({
+        ...gameSettings,
+        current_round: 2,
+      });
+      setShowRoundTransition(false);
+    }
+  };
+
   const secondBoardOptions = availableBoards.filter((b) => b.id !== board.id);
+
+  // Check URL for remote view
+  if (typeof window !== "undefined" && !isRemoteView) {
+    const isRemote = window.location.pathname.includes("/remote/");
+    if (isRemote) {
+      setIsRemoteView(true);
+    }
+  }
 
   if (showSetup) {
     return (
@@ -377,7 +388,6 @@ export function PlayPageClient({
             >
               CONTESTANTS ({contestants.length}/5)
             </h2>
-
             {contestants.length > 0 && (
               <div
                 style={{
@@ -439,7 +449,6 @@ export function PlayPageClient({
                 ))}
               </div>
             )}
-
             {contestants.length < 5 && (
               <form
                 onSubmit={(e) => {
@@ -512,26 +521,104 @@ export function PlayPageClient({
     );
   }
 
-  if (!gameStarted || !session || !gameSettings) {
-    return null;
+  if (!gameStarted || !session || !gameSettings) return null;
+
+  // Round transition modal (shows on TV)
+  if (showRoundTransition && secondBoard) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background:
+            "linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0d1842 100%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999,
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <h1
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "4rem",
+              fontWeight: 700,
+              color: "var(--jeopardy-gold)",
+              margin: "0 0 1rem 0",
+              textShadow: "0 0 40px rgba(255, 204, 0, 0.8)",
+              letterSpacing: "0.1em",
+            }}
+          >
+            ROUND 2!
+          </h1>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "2.5rem",
+              fontWeight: 600,
+              color: "white",
+              margin: "0 0 3rem 0",
+              textShadow: "0 0 20px rgba(255, 255, 255, 0.5)",
+            }}
+          >
+            {secondBoard.title}
+          </h2>
+          <button
+            onClick={startRound2}
+            style={{
+              padding: "1.5rem 3rem",
+              background:
+                "linear-gradient(135deg, var(--jeopardy-gold) 0%, #ffd700 100%)",
+              color: "var(--jeopardy-dark-blue)",
+              border: "none",
+              borderRadius: "12px",
+              fontFamily: "var(--font-display)",
+              fontSize: "1.5rem",
+              fontWeight: 700,
+              cursor: "pointer",
+              letterSpacing: "0.05em",
+              boxShadow: "0 8px 32px rgba(255, 204, 0, 0.4)",
+            }}
+          >
+            BEGIN ROUND 2
+          </button>
+        </div>
+      </div>
+    );
   }
 
   const currentBoard =
     gameSettings.current_round === 1 ? board : secondBoard || board;
   const currentQuestions =
     gameSettings.current_round === 1 ? processedQuestions : secondQuestions;
+  const hasSecondRound = Boolean(secondBoard && secondQuestions.length > 0);
 
-  const currentSettings = {
-    ...gameSettings,
-    point_mode: gameSettings.current_round === 1 ? "single" : "double",
-  } as GameSettings;
+  // Render remote control view
+  if (isRemoteView) {
+    return (
+      <RemoteControl
+        session={session}
+        board={currentBoard}
+        questions={currentQuestions}
+        hasSecondRound={hasSecondRound}
+        sessionId={session.id}
+      />
+    );
+  }
 
+  // Render presentation view
   return (
     <PresentationView
       board={currentBoard}
       questions={currentQuestions}
       session={session}
-      gameSettings={currentSettings}
+      gameSettings={gameSettings}
+      hasSecondRound={hasSecondRound}
+      onStartRound2={handleStartRound2}
     />
   );
 }

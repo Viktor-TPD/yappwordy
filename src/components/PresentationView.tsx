@@ -7,12 +7,9 @@ import {
   GameSession,
   GameSettings,
   RealtimeMessage,
-  POINT_VALUES_SINGLE,
-  POINT_VALUES_DOUBLE,
-  PointValue,
+  getPointValue,
 } from "@/types";
 import { createRealtimeChannel } from "@/lib/supabase";
-import { getQuestionKey } from "@/lib/utils";
 import QRCode from "qrcode";
 import styles from "./PresentationView.module.css";
 
@@ -21,6 +18,8 @@ interface PresentationViewProps {
   questions: Question[];
   session: GameSession;
   gameSettings: GameSettings;
+  hasSecondRound?: boolean;
+  onStartRound2?: () => void;
 }
 
 const LOCAL_NETWORK_IP = "192.168.40.239";
@@ -30,6 +29,8 @@ export function PresentationView({
   questions,
   session,
   gameSettings,
+  hasSecondRound,
+  onStartRound2,
 }: PresentationViewProps) {
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(
     null
@@ -48,10 +49,11 @@ export function PresentationView({
       ? `http://${LOCAL_NETWORK_IP}:3000/remote/${session.session_pin}`
       : "";
 
-  const pointValues =
-    gameSettings.point_mode === "single"
-      ? POINT_VALUES_SINGLE
-      : POINT_VALUES_DOUBLE;
+  // Check if all questions revealed
+  const allQuestionsRevealed =
+    questions.length > 0 && revealedQuestions.size === questions.length;
+  const canStartRound2 =
+    allQuestionsRevealed && hasSecondRound && gameSettings.current_round === 1;
 
   useEffect(() => {
     if (controlUrl) {
@@ -76,7 +78,7 @@ export function PresentationView({
               const question = questions.find(
                 (q) =>
                   q.category_index === message.payload.categoryIndex &&
-                  q.point_value === message.payload.pointValue
+                  q.row_number === message.payload.rowNumber
               );
               if (question) {
                 setSelectedQuestion(question);
@@ -92,10 +94,7 @@ export function PresentationView({
                   (prev) =>
                     new Set([
                       ...prev,
-                      getQuestionKey(
-                        selectedQuestion.category_index,
-                        selectedQuestion.point_value
-                      ),
+                      `${selectedQuestion.category_index}-${selectedQuestion.row_number}`,
                     ])
                 );
                 setSelectedQuestion(null);
@@ -124,6 +123,7 @@ export function PresentationView({
             payload: {
               contestants: contestants,
               revealedQuestions: Array.from(revealedQuestions),
+              currentRound: gameSettings.current_round,
             },
           });
         }
@@ -140,6 +140,7 @@ export function PresentationView({
     controlUrl,
     contestants,
     revealedQuestions,
+    gameSettings.current_round,
   ]);
 
   const questionsByCategory: Record<number, Question[]> = {};
@@ -155,10 +156,35 @@ export function PresentationView({
       <button
         className={styles.settingsButton}
         onClick={() => setShowSettings(true)}
-        aria-label="Settings"
       >
         <span className={styles.settingsIcon}>⚙️</span>
       </button>
+
+      {/* Round 2 Button on TV */}
+      {canStartRound2 && onStartRound2 && (
+        <button
+          onClick={onStartRound2}
+          style={{
+            position: "fixed",
+            bottom: "2rem",
+            right: "2rem",
+            padding: "1rem 2rem",
+            background:
+              "linear-gradient(135deg, var(--jeopardy-gold) 0%, #ffd700 100%)",
+            color: "var(--jeopardy-dark-blue)",
+            border: "3px solid var(--jeopardy-gold)",
+            borderRadius: "12px",
+            fontFamily: "var(--font-display)",
+            fontSize: "1.2rem",
+            fontWeight: 700,
+            cursor: "pointer",
+            zIndex: 100,
+            boxShadow: "0 8px 32px rgba(255, 204, 0, 0.6)",
+          }}
+        >
+          START ROUND 2 →
+        </button>
+      )}
 
       {!selectedQuestion ? (
         <div className={styles.boardView}>
@@ -202,13 +228,17 @@ export function PresentationView({
                     </div>
                   ))}
 
-                  {pointValues.map((pointValue: PointValue) =>
+                  {[1, 2, 3, 4, 5].map((rowNumber) =>
                     board.categories.map((_, categoryIndex) => {
                       const question = questionsByCategory[categoryIndex]?.find(
-                        (q) => q.point_value === pointValue
+                        (q) => q.row_number === rowNumber
                       );
-                      const key = getQuestionKey(categoryIndex, pointValue);
+                      const key = `${categoryIndex}-${rowNumber}`;
                       const isRevealed = revealedQuestions.has(key);
+                      const pointValue = getPointValue(
+                        rowNumber,
+                        gameSettings.current_round
+                      );
 
                       return (
                         <div
@@ -247,7 +277,11 @@ export function PresentationView({
             <div className={styles.cardFront}>
               <div className={styles.questionHeader}>
                 <span className={styles.questionValue}>
-                  ${selectedQuestion.point_value}
+                  $
+                  {getPointValue(
+                    selectedQuestion.row_number,
+                    gameSettings.current_round
+                  )}
                 </span>
                 {gameSettings.enable_daily_doubles &&
                   selectedQuestion.is_daily_double && (
@@ -273,7 +307,6 @@ export function PresentationView({
               </div>
             </div>
           </div>
-
           <p className={styles.hint}>
             Use your remote control to reveal the answer or return to the board
           </p>
@@ -306,14 +339,6 @@ export function PresentationView({
                 </p>
               </div>
               <div className={styles.settingsSection}>
-                <p className={styles.settingsLabel}>Point Mode</p>
-                <p className={styles.settingsValue}>
-                  {gameSettings.point_mode === "single"
-                    ? "$100 - $500"
-                    : "$200 - $1000"}
-                </p>
-              </div>
-              <div className={styles.settingsSection}>
                 <p className={styles.settingsLabel}>Session PIN</p>
                 <p className={styles.settingsValue}>{session.session_pin}</p>
               </div>
@@ -324,7 +349,7 @@ export function PresentationView({
                     <>
                       <img
                         src={qrCodeUrl}
-                        alt="Remote Control QR Code"
+                        alt="QR Code"
                         className={styles.qrCode}
                       />
                       <p className={styles.qrLabel}>
