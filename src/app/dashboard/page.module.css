@@ -1,0 +1,138 @@
+.container {
+  min-height: 100vh;
+  padding: 2rem;
+}
+
+.header {
+  max-width: 1400px;
+  margin: 0 auto 3rem;
+}
+
+.headerContent {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 1rem;
+}
+
+.title {
+  font-family: var(--font-display);
+  font-size: 3rem;
+  font-weight: 700;
+  color: var(--jeopardy-gold);
+  text-shadow: 0 0 20px rgba(255, 204, 0, 0.5);
+  margin: 0 0 0.5rem 0;
+  letter-spacing: 0.05em;
+}
+
+.subtitle {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  margin: 0;
+}
+
+.actionBar {
+  max-width: 1400px;
+  margin: 0 auto 2rem;
+}
+
+.createButton {
+  display: inline-block;
+  padding: 1rem 2rem;
+  background: linear-gradient(135deg, var(--jeopardy-gold) 0%, #ffd700 100%);
+  color: var(--jeopardy-dark-blue);
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 700;
+  border-radius: 8px;
+  text-decoration: none;
+  box-shadow: var(--shadow-lg);
+  transition: transform 0.2s, box-shadow 0.2s;
+  letter-spacing: 0.05em;
+}
+
+.createButton:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(255, 204, 0, 0.4);
+}
+
+.content {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+/* Empty State */
+.emptyState {
+  text-align: center;
+  padding: 5rem 2rem;
+  animation: fadeIn 0.5s ease-out;
+}
+
+.emptyIcon {
+  font-size: 5rem;
+  margin-bottom: 1.5rem;
+}
+
+.emptyTitle {
+  font-family: var(--font-display);
+  font-size: 2rem;
+  color: var(--jeopardy-gold);
+  margin: 0 0 1rem 0;
+}
+
+.emptyText {
+  color: var(--text-secondary);
+  font-size: 1.1rem;
+  margin: 0 0 2rem 0;
+}
+
+.emptyButton {
+  display: inline-block;
+  padding: 0.875rem 2rem;
+  border: 2px solid var(--jeopardy-gold);
+  color: var(--jeopardy-gold);
+  font-family: var(--font-display);
+  font-size: 1.1rem;
+  font-weight: 700;
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s;
+  letter-spacing: 0.05em;
+}
+
+.emptyButton:hover {
+  background: var(--jeopardy-gold);
+  color: var(--jeopardy-dark-blue);
+}
+
+/* Boards Grid */
+.boardsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+  gap: 1.5rem;
+}
+
+.boardCardWrapper {
+  animation: slideUp 0.5s ease-out;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+
+  .title {
+    font-size: 2rem;
+  }
+
+  .headerContent {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .boardsGrid {
+    grid-template-columns: 1fr;
+  }
+}
