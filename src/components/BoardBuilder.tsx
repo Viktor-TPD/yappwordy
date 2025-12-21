@@ -2,12 +2,11 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Board, Question, POINT_VALUES, PointValue } from "@/types";
+import { Board, Question } from "@/types";
 import {
   createBoard,
   updateBoard,
   createQuestions,
-  updateQuestion,
   deleteQuestions,
 } from "@/lib/database";
 import Link from "next/link";
@@ -22,8 +21,10 @@ interface BoardBuilderProps {
 interface QuestionData {
   question: string;
   answer: string;
-  isDailyDouble: boolean;
 }
+
+// Always store as 200-1000, display as Question 1-5
+const STORED_VALUES = [200, 400, 600, 800, 1000];
 
 export function BoardBuilder({
   userId,
@@ -47,7 +48,6 @@ export function BoardBuilder({
         questionsMap[key] = {
           question: q.question_text,
           answer: q.answer_text,
-          isDailyDouble: q.is_daily_double,
         };
       });
       setQuestions(questionsMap);
@@ -65,14 +65,12 @@ export function BoardBuilder({
       const newCategories = categories.filter((_, i) => i !== index);
       setCategories(newCategories);
 
-      // Remove questions for this category
       const newQuestions = { ...questions };
-      POINT_VALUES.forEach((pv) => {
+      STORED_VALUES.forEach((pv) => {
         delete newQuestions[`${index}-${pv}`];
       });
       setQuestions(newQuestions);
 
-      // Adjust active category if needed
       if (activeCategory >= newCategories.length) {
         setActiveCategory(Math.max(0, newCategories.length - 1));
       }
@@ -87,9 +85,9 @@ export function BoardBuilder({
 
   const updateQuestionData = (
     categoryIndex: number,
-    pointValue: PointValue,
+    pointValue: number,
     field: keyof QuestionData,
-    value: string | boolean
+    value: string
   ) => {
     const key = `${categoryIndex}-${pointValue}`;
     setQuestions((prev) => ({
@@ -97,14 +95,12 @@ export function BoardBuilder({
       [key]: {
         question: prev[key]?.question || "",
         answer: prev[key]?.answer || "",
-        isDailyDouble: prev[key]?.isDailyDouble || false,
         [field]: value,
       },
     }));
   };
 
   const handleSave = async () => {
-    // Validate
     if (!title.trim()) {
       alert("Please enter a board title");
       return;
@@ -121,7 +117,6 @@ export function BoardBuilder({
     try {
       let boardId = existingBoard?.id;
 
-      // Create or update board
       if (existingBoard) {
         await updateBoard(existingBoard.id, {
           title,
@@ -135,15 +130,13 @@ export function BoardBuilder({
         boardId = newBoard.id;
       }
 
-      // Delete old questions if editing
       if (existingBoard) {
         await deleteQuestions(boardId!);
       }
 
-      // Prepare questions
       const questionsList: Omit<Question, "id">[] = [];
       filledCategories.forEach((_, categoryIndex) => {
-        POINT_VALUES.forEach((pointValue) => {
+        STORED_VALUES.forEach((pointValue) => {
           const key = `${categoryIndex}-${pointValue}`;
           const data = questions[key];
           if (data?.question?.trim() && data?.answer?.trim()) {
@@ -153,13 +146,12 @@ export function BoardBuilder({
               point_value: pointValue,
               question_text: data.question,
               answer_text: data.answer,
-              is_daily_double: data.isDailyDouble || false,
+              is_daily_double: false, // Will be set randomly when game starts
             });
           }
         });
       });
 
-      // Create all questions
       if (questionsList.length > 0) {
         await createQuestions(questionsList);
       }
@@ -176,7 +168,6 @@ export function BoardBuilder({
 
   return (
     <div className={styles.container}>
-      {/* Board Title */}
       <div className={styles.section}>
         <label className={styles.label}>BOARD TITLE</label>
         <input
@@ -188,7 +179,6 @@ export function BoardBuilder({
         />
       </div>
 
-      {/* Categories */}
       <div className={styles.section}>
         <div className={styles.sectionHeader}>
           <label className={styles.label}>
@@ -225,12 +215,10 @@ export function BoardBuilder({
         </div>
       </div>
 
-      {/* Questions */}
       {filledCategories.length > 0 && (
         <div className={styles.section}>
           <label className={styles.label}>QUESTIONS</label>
 
-          {/* Category Tabs */}
           <div className={styles.tabs}>
             {filledCategories.map((category, index) => (
               <button
@@ -245,36 +233,20 @@ export function BoardBuilder({
             ))}
           </div>
 
-          {/* Questions for Active Category */}
           <div className={styles.questionsGrid}>
-            {POINT_VALUES.map((pointValue) => {
+            {STORED_VALUES.map((pointValue, idx) => {
               const key = `${activeCategory}-${pointValue}`;
               const data = questions[key] || {
                 question: "",
                 answer: "",
-                isDailyDouble: false,
               };
 
               return (
                 <div key={pointValue} className={styles.questionCard}>
                   <div className={styles.questionHeader}>
-                    <span className={styles.pointValue}>${pointValue}</span>
-                    <label className={styles.dailyDoubleLabel}>
-                      <input
-                        type="checkbox"
-                        checked={data.isDailyDouble}
-                        onChange={(e) =>
-                          updateQuestionData(
-                            activeCategory,
-                            pointValue,
-                            "isDailyDouble",
-                            e.target.checked
-                          )
-                        }
-                        className={styles.checkbox}
-                      />
-                      Daily Double
-                    </label>
+                    <span className={styles.pointValue}>
+                      Question {idx + 1}
+                    </span>
                   </div>
 
                   <div className={styles.questionInputs}>
@@ -314,7 +286,6 @@ export function BoardBuilder({
         </div>
       )}
 
-      {/* Action Buttons */}
       <div className={styles.actions}>
         <button
           onClick={handleSave}

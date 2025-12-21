@@ -162,10 +162,18 @@
   color: var(--jeopardy-gold);
 }
 
-/* Questions Grid */
+/* Questions Grid - 2x2 on desktop, 1 column on mobile */
 .questionsGrid {
   display: grid;
   gap: 1.5rem;
+  grid-template-columns: 1fr;
+}
+
+/* 2x2 grid for medium screens and up */
+@media (min-width: 768px) {
+  .questionsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
 
 .questionCard {

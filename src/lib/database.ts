@@ -1,5 +1,5 @@
 import { supabase } from "./supabase";
-import { Board, Question, GameSession } from "@/types";
+import { Board, Question, GameSession, GameSettings } from "@/types";
 import { generateSessionPin } from "./utils";
 
 // ============================================================================
@@ -172,39 +172,6 @@ export async function deleteQuestions(boardId: string): Promise<boolean> {
 // GAME SESSION OPERATIONS
 // ============================================================================
 
-export async function createGameSession(
-  boardId: string,
-  userId: string
-): Promise<GameSession | null> {
-  const sessionPin = generateSessionPin();
-  const expiresAt = new Date();
-  expiresAt.setHours(expiresAt.getHours() + 4); // 4 hour expiry
-
-  const { data, error } = await supabase
-    .from("game_sessions")
-    .insert({
-      board_id: boardId,
-      user_id: userId,
-      session_pin: sessionPin,
-      current_state: {
-        selectedQuestion: null,
-        revealedQuestions: [],
-        scores: {},
-        showingAnswer: false,
-      },
-      expires_at: expiresAt.toISOString(),
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error creating game session:", error);
-    return null;
-  }
-
-  return data;
-}
-
 export async function getGameSession(
   sessionPin: string
 ): Promise<GameSession | null> {
@@ -233,6 +200,59 @@ export async function updateGameState(
 
   if (error) {
     console.error("Error updating game state:", error);
+    return false;
+  }
+
+  return true;
+}
+
+export async function createGameSession(
+  boardId: string,
+  userId: string,
+  gameSettings: GameSettings,
+  secondBoardId?: string | null
+): Promise<GameSession | null> {
+  const sessionPin = generateSessionPin();
+  const expiresAt = new Date();
+  expiresAt.setHours(expiresAt.getHours() + 4);
+
+  const { data, error } = await supabase
+    .from("game_sessions")
+    .insert({
+      board_id: boardId,
+      second_board_id: secondBoardId || null,
+      user_id: userId,
+      session_pin: sessionPin,
+      current_state: {
+        selectedQuestion: null,
+        revealedQuestions: [],
+        showingAnswer: false,
+      },
+      game_settings: gameSettings,
+      expires_at: expiresAt.toISOString(),
+    })
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error creating game session:", error);
+    return null;
+  }
+
+  return data;
+}
+
+export async function updateGameSettings(
+  sessionId: string,
+  gameSettings: GameSettings
+): Promise<boolean> {
+  const { error } = await supabase
+    .from("game_sessions")
+    .update({ game_settings: gameSettings })
+    .eq("id", sessionId);
+
+  if (error) {
+    console.error("Error updating game settings:", error);
     return false;
   }
 
