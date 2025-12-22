@@ -19,6 +19,7 @@ interface PresentationViewProps {
   session: GameSession;
   gameSettings: GameSettings;
   hasSecondRound?: boolean;
+  secondBoardName?: string;
   onStartRound2?: () => void;
 }
 
@@ -28,8 +29,9 @@ export function PresentationView({
   board,
   questions,
   session,
-  gameSettings,
+  gameSettings: initialGameSettings,
   hasSecondRound,
+  secondBoardName,
   onStartRound2,
 }: PresentationViewProps) {
   const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(
@@ -39,9 +41,15 @@ export function PresentationView({
   const [revealedQuestions, setRevealedQuestions] = useState<Set<string>>(
     new Set()
   );
-  const [contestants, setContestants] = useState(gameSettings.contestants);
+  const [contestants, setContestants] = useState(
+    initialGameSettings.contestants
+  );
+  const [currentRound, setCurrentRound] = useState(
+    initialGameSettings.current_round
+  );
   const [showSettings, setShowSettings] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
+  const [showRoundTransition, setShowRoundTransition] = useState(false);
   const channelRef = useRef<any>(null);
 
   const controlUrl =
@@ -49,11 +57,10 @@ export function PresentationView({
       ? `http://${LOCAL_NETWORK_IP}:3000/remote/${session.session_pin}`
       : "";
 
-  // Check if all questions revealed
   const allQuestionsRevealed =
     questions.length > 0 && revealedQuestions.size === questions.length;
   const canStartRound2 =
-    allQuestionsRevealed && hasSecondRound && gameSettings.current_round === 1;
+    allQuestionsRevealed && hasSecondRound && currentRound === 1;
 
   useEffect(() => {
     if (controlUrl) {
@@ -115,6 +122,18 @@ export function PresentationView({
           setContestants(payload.payload.contestants);
         }
       )
+      .on(
+        "broadcast",
+        { event: "start-round-2" },
+        (payload: { payload: { contestants: any[] } }) => {
+          // Update contestants with scores from remote
+          if (payload.payload.contestants) {
+            setContestants(payload.payload.contestants);
+          }
+          // Show transition modal
+          setShowRoundTransition(true);
+        }
+      )
       .on("broadcast", { event: "sync-request" }, () => {
         if (channelRef.current) {
           channelRef.current.send({
@@ -123,7 +142,7 @@ export function PresentationView({
             payload: {
               contestants: contestants,
               revealedQuestions: Array.from(revealedQuestions),
-              currentRound: gameSettings.current_round,
+              currentRound: currentRound,
             },
           });
         }
@@ -140,8 +159,29 @@ export function PresentationView({
     controlUrl,
     contestants,
     revealedQuestions,
-    gameSettings.current_round,
+    currentRound,
   ]);
+
+  const handleConfirmRound2 = () => {
+    // Update local round
+    setCurrentRound(2);
+    setRevealedQuestions(new Set());
+    setShowRoundTransition(false);
+
+    // Broadcast to remote
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: "broadcast",
+        event: "round-2-confirmed",
+        payload: { contestants },
+      });
+    }
+
+    // Tell parent to switch boards
+    if (onStartRound2) {
+      onStartRound2();
+    }
+  };
 
   const questionsByCategory: Record<number, Question[]> = {};
   questions.forEach((q) => {
@@ -150,6 +190,74 @@ export function PresentationView({
     }
     questionsByCategory[q.category_index].push(q);
   });
+
+  // Round 2 transition modal
+  if (showRoundTransition && secondBoardName) {
+    return (
+      <div
+        style={{
+          position: "fixed",
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          background:
+            "linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0d1842 100%)",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          zIndex: 9999,
+        }}
+      >
+        <div style={{ textAlign: "center" }}>
+          <h1
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "4rem",
+              fontWeight: 700,
+              color: "var(--jeopardy-gold)",
+              margin: "0 0 1rem 0",
+              textShadow: "0 0 40px rgba(255, 204, 0, 0.8)",
+              letterSpacing: "0.1em",
+            }}
+          >
+            ROUND 2!
+          </h1>
+          <h2
+            style={{
+              fontFamily: "var(--font-display)",
+              fontSize: "2.5rem",
+              fontWeight: 600,
+              color: "white",
+              margin: "0 0 3rem 0",
+              textShadow: "0 0 20px rgba(255, 255, 255, 0.5)",
+            }}
+          >
+            {secondBoardName}
+          </h2>
+          <button
+            onClick={handleConfirmRound2}
+            style={{
+              padding: "1.5rem 3rem",
+              background:
+                "linear-gradient(135deg, var(--jeopardy-gold) 0%, #ffd700 100%)",
+              color: "var(--jeopardy-dark-blue)",
+              border: "none",
+              borderRadius: "12px",
+              fontFamily: "var(--font-display)",
+              fontSize: "1.5rem",
+              fontWeight: 700,
+              cursor: "pointer",
+              letterSpacing: "0.05em",
+              boxShadow: "0 8px 32px rgba(255, 204, 0, 0.4)",
+            }}
+          >
+            BEGIN ROUND 2
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className={styles.container}>
@@ -160,10 +268,10 @@ export function PresentationView({
         <span className={styles.settingsIcon}>⚙️</span>
       </button>
 
-      {/* Round 2 Button on TV */}
-      {canStartRound2 && onStartRound2 && (
+      {/* TV Button for Round 2 */}
+      {canStartRound2 && (
         <button
-          onClick={onStartRound2}
+          onClick={() => setShowRoundTransition(true)}
           style={{
             position: "fixed",
             bottom: "2rem",
@@ -235,10 +343,7 @@ export function PresentationView({
                       );
                       const key = `${categoryIndex}-${rowNumber}`;
                       const isRevealed = revealedQuestions.has(key);
-                      const pointValue = getPointValue(
-                        rowNumber,
-                        gameSettings.current_round
-                      );
+                      const pointValue = getPointValue(rowNumber, currentRound);
 
                       return (
                         <div
@@ -252,7 +357,7 @@ export function PresentationView({
                               <span className={styles.pointValue}>
                                 ${pointValue}
                               </span>
-                              {gameSettings.enable_daily_doubles &&
+                              {initialGameSettings.enable_daily_doubles &&
                                 question.is_daily_double && (
                                   <div className={styles.dailyDouble}>DD</div>
                                 )}
@@ -277,13 +382,9 @@ export function PresentationView({
             <div className={styles.cardFront}>
               <div className={styles.questionHeader}>
                 <span className={styles.questionValue}>
-                  $
-                  {getPointValue(
-                    selectedQuestion.row_number,
-                    gameSettings.current_round
-                  )}
+                  ${getPointValue(selectedQuestion.row_number, currentRound)}
                 </span>
-                {gameSettings.enable_daily_doubles &&
+                {initialGameSettings.enable_daily_doubles &&
                   selectedQuestion.is_daily_double && (
                     <div className={styles.dailyDoubleBadge}>
                       ⭐ DAILY DOUBLE ⭐
@@ -334,9 +435,7 @@ export function PresentationView({
               </div>
               <div className={styles.settingsSection}>
                 <p className={styles.settingsLabel}>Round</p>
-                <p className={styles.settingsValue}>
-                  Round {gameSettings.current_round}
-                </p>
+                <p className={styles.settingsValue}>Round {currentRound}</p>
               </div>
               <div className={styles.settingsSection}>
                 <p className={styles.settingsLabel}>Session PIN</p>

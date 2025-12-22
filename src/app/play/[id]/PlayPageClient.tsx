@@ -25,7 +25,6 @@ export function PlayPageClient({
   const [processedQuestions, setProcessedQuestions] = useState<Question[]>([]);
   const [secondQuestions, setSecondQuestions] = useState<Question[]>([]);
   const [showSetup, setShowSetup] = useState(true);
-  const [showRoundTransition, setShowRoundTransition] = useState(false);
   const [isRemoteView, setIsRemoteView] = useState(false);
 
   const [contestants, setContestants] = useState<
@@ -137,18 +136,12 @@ export function PlayPageClient({
   };
 
   const handleStartRound2 = () => {
-    // Show transition modal
-    setShowRoundTransition(true);
-  };
-
-  const startRound2 = () => {
-    if (gameSettings) {
-      // Update to Round 2 with preserved scores
+    if (gameSettings && secondBoard) {
+      // Update game settings to round 2
       setGameSettings({
         ...gameSettings,
         current_round: 2,
       });
-      setShowRoundTransition(false);
     }
   };
 
@@ -523,81 +516,12 @@ export function PlayPageClient({
 
   if (!gameStarted || !session || !gameSettings) return null;
 
-  // Round transition modal (shows on TV)
-  if (showRoundTransition && secondBoard) {
-    return (
-      <div
-        style={{
-          position: "fixed",
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background:
-            "linear-gradient(135deg, #0a0e27 0%, #1a1f3a 50%, #0d1842 100%)",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          zIndex: 9999,
-        }}
-      >
-        <div style={{ textAlign: "center" }}>
-          <h1
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "4rem",
-              fontWeight: 700,
-              color: "var(--jeopardy-gold)",
-              margin: "0 0 1rem 0",
-              textShadow: "0 0 40px rgba(255, 204, 0, 0.8)",
-              letterSpacing: "0.1em",
-            }}
-          >
-            ROUND 2!
-          </h1>
-          <h2
-            style={{
-              fontFamily: "var(--font-display)",
-              fontSize: "2.5rem",
-              fontWeight: 600,
-              color: "white",
-              margin: "0 0 3rem 0",
-              textShadow: "0 0 20px rgba(255, 255, 255, 0.5)",
-            }}
-          >
-            {secondBoard.title}
-          </h2>
-          <button
-            onClick={startRound2}
-            style={{
-              padding: "1.5rem 3rem",
-              background:
-                "linear-gradient(135deg, var(--jeopardy-gold) 0%, #ffd700 100%)",
-              color: "var(--jeopardy-dark-blue)",
-              border: "none",
-              borderRadius: "12px",
-              fontFamily: "var(--font-display)",
-              fontSize: "1.5rem",
-              fontWeight: 700,
-              cursor: "pointer",
-              letterSpacing: "0.05em",
-              boxShadow: "0 8px 32px rgba(255, 204, 0, 0.4)",
-            }}
-          >
-            BEGIN ROUND 2
-          </button>
-        </div>
-      </div>
-    );
-  }
-
   const currentBoard =
     gameSettings.current_round === 1 ? board : secondBoard || board;
   const currentQuestions =
     gameSettings.current_round === 1 ? processedQuestions : secondQuestions;
   const hasSecondRound = Boolean(secondBoard && secondQuestions.length > 0);
 
-  // Render remote control view
   if (isRemoteView) {
     return (
       <RemoteControl
@@ -605,12 +529,10 @@ export function PlayPageClient({
         board={currentBoard}
         questions={currentQuestions}
         hasSecondRound={hasSecondRound}
-        sessionId={session.id}
       />
     );
   }
 
-  // Render presentation view
   return (
     <PresentationView
       board={currentBoard}
@@ -618,6 +540,7 @@ export function PlayPageClient({
       session={session}
       gameSettings={gameSettings}
       hasSecondRound={hasSecondRound}
+      secondBoardName={secondBoard?.title}
       onStartRound2={handleStartRound2}
     />
   );

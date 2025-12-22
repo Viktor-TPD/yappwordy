@@ -9,23 +9,14 @@ export default async function RemotePage({
   params: { pin: string };
 }) {
   const { userId } = await auth();
-
-  if (!userId) {
-    redirect("/sign-in");
-  }
+  if (!userId) redirect("/sign-in");
 
   const session = await getGameSession(params.pin);
-
-  if (!session) {
-    redirect("/dashboard");
-  }
+  if (!session) redirect("/dashboard");
 
   const board = await getBoard(session.board_id);
   const questions = await getQuestions(session.board_id);
-
-  if (!board) {
-    redirect("/dashboard");
-  }
+  if (!board) redirect("/dashboard");
 
   const hasSecondRound = Boolean(session.second_board_id);
 
@@ -35,7 +26,6 @@ export default async function RemotePage({
       board={board}
       questions={questions}
       hasSecondRound={hasSecondRound}
-      sessionId={session.id}
     />
   );
 }

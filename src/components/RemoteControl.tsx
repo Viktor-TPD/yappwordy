@@ -11,7 +11,6 @@ interface RemoteControlProps {
   board: Board;
   questions: Question[];
   hasSecondRound: boolean;
-  sessionId: string;
 }
 
 interface Contestant {
@@ -25,7 +24,6 @@ export function RemoteControl({
   board,
   questions,
   hasSecondRound,
-  sessionId,
 }: RemoteControlProps) {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
   const [currentQuestion, setCurrentQuestion] = useState<{
@@ -42,11 +40,9 @@ export function RemoteControl({
   );
   const [contestants, setContestants] = useState<Contestant[]>([]);
   const [currentRound, setCurrentRound] = useState<1 | 2>(1);
-  const [isStartingRound2, setIsStartingRound2] = useState(false);
   const channelRef = useRef<any>(null);
   const syncRequestedRef = useRef(false);
 
-  // Check if all questions are revealed
   const allQuestionsRevealed =
     questions.length > 0 && revealedQuestions.size === questions.length;
   const canStartRound2 =
@@ -77,6 +73,18 @@ export function RemoteControl({
           setContestants(payload.payload.contestants);
           setRevealedQuestions(new Set(payload.payload.revealedQuestions));
           setCurrentRound(payload.payload.currentRound);
+        }
+      )
+      .on(
+        "broadcast",
+        { event: "round-2-confirmed" },
+        (payload: { payload: { contestants: Contestant[] } }) => {
+          // TV confirmed Round 2, update state
+          setCurrentRound(2);
+          setRevealedQuestions(new Set());
+          if (payload.payload.contestants) {
+            setContestants(payload.payload.contestants);
+          }
         }
       )
       .subscribe((status: string) => {
@@ -183,32 +191,14 @@ export function RemoteControl({
     sendMessage("RESET_VIEW");
   };
 
-  const handleStartRound2 = async () => {
-    setIsStartingRound2(true);
-    try {
-      // Update database to Round 2 - this will trigger TV via polling
-      const response = await fetch("/api/game/update-round", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          sessionId,
-          round: 2,
-          contestants, // Send current scores
-        }),
+  const handleStartRound2 = () => {
+    // Send broadcast with current contestant scores
+    if (channelRef.current) {
+      channelRef.current.send({
+        type: "broadcast",
+        event: "start-round-2",
+        payload: { contestants },
       });
-
-      if (!response.ok) {
-        throw new Error("Failed to update round");
-      }
-
-      // Update local state
-      setCurrentRound(2);
-      setRevealedQuestions(new Set());
-    } catch (error) {
-      console.error("Error starting Round 2:", error);
-      alert("Failed to start Round 2. Please try again.");
-    } finally {
-      setIsStartingRound2(false);
     }
   };
 
@@ -231,7 +221,6 @@ export function RemoteControl({
           </p>
         </div>
 
-        {/* Round 2 Transition Button */}
         {canStartRound2 && (
           <div className={styles.section}>
             <div
@@ -258,7 +247,6 @@ export function RemoteControl({
               </h2>
               <button
                 onClick={handleStartRound2}
-                disabled={isStartingRound2}
                 style={{
                   padding: "1rem 2rem",
                   background: "var(--jeopardy-dark-blue)",
@@ -268,12 +256,11 @@ export function RemoteControl({
                   fontFamily: "var(--font-display)",
                   fontSize: "1.3rem",
                   fontWeight: 700,
-                  cursor: isStartingRound2 ? "not-allowed" : "pointer",
+                  cursor: "pointer",
                   letterSpacing: "0.05em",
-                  opacity: isStartingRound2 ? 0.5 : 1,
                 }}
               >
-                {isStartingRound2 ? "STARTING..." : "START ROUND 2 →"}
+                START ROUND 2 →
               </button>
             </div>
           </div>
