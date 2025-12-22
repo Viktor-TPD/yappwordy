@@ -607,6 +607,139 @@
   color: var(--bg-primary);
 }
 
+/* Winner Celebration */
+.winnerOverlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.95);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 9999;
+  animation: fadeIn 0.5s ease-out;
+  overflow: hidden;
+}
+
+.winnerContent {
+  text-align: center;
+  padding: 3rem;
+  max-width: 800px;
+  position: relative;
+  z-index: 2;
+}
+
+.winnerEmoji {
+  font-size: 8rem;
+  margin-bottom: 2rem;
+  animation: bounce 1s infinite;
+}
+
+.winnerTitle {
+  font-family: var(--font-display);
+  font-size: clamp(2.5rem, 6vw, 4rem);
+  font-weight: 700;
+  color: var(--jeopardy-gold);
+  margin: 0 0 1rem 0;
+  text-shadow: 0 0 40px rgba(255, 204, 0, 0.8);
+  letter-spacing: 0.1em;
+  animation: pulse 2s infinite;
+}
+
+.winnerName {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 5vw, 3rem);
+  font-weight: 700;
+  color: white;
+  margin: 0 0 2rem 0;
+  text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+  animation: glow 2s ease-in-out infinite;
+}
+
+.winnerScore {
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 8vw, 5rem);
+  font-weight: 700;
+  color: #10b981;
+  margin: 0 0 2rem 0;
+  text-shadow: 0 0 40px rgba(16, 185, 129, 0.6);
+  letter-spacing: 0.05em;
+  animation: scoreCount 1s ease-out;
+}
+
+.confetti {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  z-index: 1;
+}
+
+.winnerButton {
+  margin-top: 2rem;
+  padding: 1.5rem 3rem;
+  background: linear-gradient(135deg, var(--jeopardy-gold) 0%, #ffd700 100%);
+  color: var(--jeopardy-dark-blue);
+  border: none;
+  border-radius: 12px;
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 700;
+  cursor: pointer;
+  letter-spacing: 0.05em;
+  box-shadow: 0 8px 32px rgba(255, 204, 0, 0.4);
+  transition: transform 0.2s;
+}
+
+.winnerButton:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 40px rgba(255, 204, 0, 0.6);
+}
+
+@keyframes bounce {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-30px);
+  }
+}
+
+@keyframes glow {
+  0%,
+  100% {
+    text-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+  }
+  50% {
+    text-shadow: 0 0 60px rgba(255, 204, 0, 0.8),
+      0 0 90px rgba(255, 204, 0, 0.6);
+  }
+}
+
+@keyframes scoreCount {
+  0% {
+    transform: scale(0);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.2);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes confettiFall {
+  0% {
+    transform: translateY(-100vh) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
 /* Responsive */
 @media (max-width: 1200px) {
   .mainContent {
@@ -665,5 +798,9 @@
   .contestantCard,
   .addContestant {
     min-width: calc(50% - 0.375rem);
+  }
+
+  .winnerEmoji {
+    font-size: 5rem;
   }
 }

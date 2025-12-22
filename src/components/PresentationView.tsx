@@ -23,8 +23,6 @@ interface PresentationViewProps {
   onStartRound2?: () => void;
 }
 
-const LOCAL_NETWORK_IP = "192.168.40.239";
-
 export function PresentationView({
   board,
   questions,
@@ -50,17 +48,62 @@ export function PresentationView({
   const [showSettings, setShowSettings] = useState(false);
   const [qrCodeUrl, setQrCodeUrl] = useState("");
   const [showRoundTransition, setShowRoundTransition] = useState(false);
+  const [showWinner, setShowWinner] = useState(false);
+  const [winner, setWinner] = useState<{ name: string; score: number } | null>(
+    null
+  );
+  const [confettiPieces, setConfettiPieces] = useState<
+    Array<{
+      id: number;
+      left: string;
+      delay: string;
+      duration: string;
+      color: string;
+    }>
+  >([]);
   const channelRef = useRef<any>(null);
 
   const controlUrl =
     typeof window !== "undefined"
-      ? `http://${LOCAL_NETWORK_IP}:3000/remote/${session.session_pin}`
+      ? `${window.location.origin}/remote/${session.session_pin}`
       : "";
 
   const allQuestionsRevealed =
     questions.length > 0 && revealedQuestions.size === questions.length;
   const canStartRound2 =
     allQuestionsRevealed && hasSecondRound && currentRound === 1;
+
+  // Generate confetti when winner is shown
+  useEffect(() => {
+    if (showWinner) {
+      const colors = ["#ffcc00", "#060ce9", "#10b981", "#ef4444", "#ffffff"];
+      const pieces = Array.from({ length: 50 }, (_, i) => ({
+        id: i,
+        left: `${Math.random() * 100}%`,
+        delay: `${Math.random() * 3}s`,
+        duration: `${3 + Math.random() * 2}s`,
+        color: colors[Math.floor(Math.random() * colors.length)],
+      }));
+      setConfettiPieces(pieces);
+    }
+  }, [showWinner]);
+
+  // Check for winner when round 2 ends
+  useEffect(() => {
+    if (currentRound === 2 && allQuestionsRevealed && contestants.length > 0) {
+      setTimeout(() => {
+        const sortedContestants = [...contestants].sort(
+          (a, b) => b.score - a.score
+        );
+        const topContestant = sortedContestants[0];
+
+        if (topContestant.score > 0) {
+          setWinner({ name: topContestant.name, score: topContestant.score });
+          setShowWinner(true);
+        }
+      }, 1000); // Delay to let final question complete
+    }
+  }, [currentRound, allQuestionsRevealed, revealedQuestions, contestants]);
 
   useEffect(() => {
     if (controlUrl) {
@@ -190,6 +233,44 @@ export function PresentationView({
     }
     questionsByCategory[q.category_index].push(q);
   });
+
+  // Winner overlay
+  if (showWinner && winner) {
+    return (
+      <div className={styles.winnerOverlay}>
+        {confettiPieces.map((piece) => (
+          <div
+            key={piece.id}
+            className={styles.confetti}
+            style={{
+              left: piece.left,
+              animationDelay: piece.delay,
+              animationDuration: piece.duration,
+              animation: `confettiFall ${piece.duration} linear ${piece.delay} infinite`,
+              background: piece.color,
+            }}
+          />
+        ))}
+        <div className={styles.winnerContent}>
+          <div className={styles.winnerEmoji}>🏆</div>
+          <h1 className={styles.winnerTitle}>WINNER!</h1>
+          <h2 className={styles.winnerName}>{winner.name}</h2>
+          <div className={styles.winnerScore}>
+            ${winner.score.toLocaleString()}
+          </div>
+          <button
+            onClick={() => {
+              setShowWinner(false);
+              setWinner(null);
+            }}
+            className={styles.winnerButton}
+          >
+            CLOSE
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   // Round 2 transition modal
   if (showRoundTransition && secondBoardName) {
