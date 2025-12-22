@@ -63,9 +63,12 @@ export function PresentationView({
   >([]);
   const channelRef = useRef<any>(null);
 
+  // Use local IP if available (for local network testing), otherwise use production URL
   const controlUrl =
     typeof window !== "undefined"
-      ? `${window.location.origin}/remote/${session.session_pin}`
+      ? process.env.NEXT_PUBLIC_LOCAL_IP
+        ? `http://${process.env.NEXT_PUBLIC_LOCAL_IP}:3000/remote/${session.session_pin}`
+        : `${window.location.origin}/remote/${session.session_pin}`
       : "";
 
   const allQuestionsRevealed =
