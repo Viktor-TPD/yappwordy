@@ -21,8 +21,8 @@ interface Contestant {
 
 export function RemoteControl({
   session,
-  board,
-  questions,
+  board: initialBoard,
+  questions: initialQuestions,
   hasSecondRound,
 }: RemoteControlProps) {
   const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
@@ -40,6 +40,8 @@ export function RemoteControl({
   );
   const [contestants, setContestants] = useState<Contestant[]>([]);
   const [currentRound, setCurrentRound] = useState<1 | 2>(1);
+  const [board, setBoard] = useState<Board>(initialBoard);
+  const [questions, setQuestions] = useState<Question[]>(initialQuestions);
   const channelRef = useRef<any>(null);
   const syncRequestedRef = useRef(false);
 
@@ -47,6 +49,27 @@ export function RemoteControl({
     questions.length > 0 && revealedQuestions.size === questions.length;
   const canStartRound2 =
     allQuestionsRevealed && hasSecondRound && currentRound === 1;
+
+  // Fetch Round 2 board and questions
+  const fetchRound2Data = async () => {
+    if (!session.second_board_id) return;
+
+    try {
+      const [boardRes, questionsRes] = await Promise.all([
+        fetch(`/api/board/${session.second_board_id}`),
+        fetch(`/api/questions/${session.second_board_id}`),
+      ]);
+
+      if (boardRes.ok && questionsRes.ok) {
+        const fetchedBoard = await boardRes.json();
+        const fetchedQuestions = await questionsRes.json();
+        setBoard(fetchedBoard);
+        setQuestions(fetchedQuestions);
+      }
+    } catch (error) {
+      console.error("Error fetching Round 2 data:", error);
+    }
+  };
 
   useEffect(() => {
     const channel = createRealtimeChannel(session.session_pin);
@@ -73,18 +96,24 @@ export function RemoteControl({
           setContestants(payload.payload.contestants);
           setRevealedQuestions(new Set(payload.payload.revealedQuestions));
           setCurrentRound(payload.payload.currentRound);
+          // If syncing to round 2, fetch the board data
+          if (payload.payload.currentRound === 2 && currentRound === 1) {
+            fetchRound2Data();
+          }
         }
       )
       .on(
         "broadcast",
         { event: "round-2-confirmed" },
-        (payload: { payload: { contestants: Contestant[] } }) => {
-          // TV confirmed Round 2, update state
+        async (payload: { payload: { contestants: Contestant[] } }) => {
+          // TV confirmed Round 2, update state and fetch new board
           setCurrentRound(2);
           setRevealedQuestions(new Set());
           if (payload.payload.contestants) {
             setContestants(payload.payload.contestants);
           }
+          // Fetch Round 2 board and questions
+          await fetchRound2Data();
         }
       )
       .subscribe((status: string) => {

@@ -109,21 +109,31 @@ export function BoardBuilder({
     setIsSaving(true);
     try {
       let boardId = existingBoard?.id;
+
+      // Step 1: Create or update the board
       if (existingBoard) {
-        await updateBoard(existingBoard.id, {
+        console.log("Updating board:", existingBoard.id);
+        const updateSuccess = await updateBoard(existingBoard.id, {
           title,
           categories: filledCategories,
         });
+        if (!updateSuccess) {
+          throw new Error("Failed to update board");
+        }
       } else {
+        console.log("Creating new board");
         const newBoard = await createBoard(userId, title, filledCategories);
         if (!newBoard) throw new Error("Failed to create board");
         boardId = newBoard.id;
       }
 
-      if (existingBoard) {
-        await deleteQuestions(boardId!);
+      // Step 2: Delete old questions if editing
+      if (existingBoard && boardId) {
+        console.log("Deleting old questions for board:", boardId);
+        await deleteQuestions(boardId);
       }
 
+      // Step 3: Create new questions
       const questionsList: Omit<Question, "id">[] = [];
       filledCategories.forEach((_, categoryIndex) => {
         for (let rowNumber = 1; rowNumber <= 5; rowNumber++) {
@@ -142,13 +152,24 @@ export function BoardBuilder({
         }
       });
 
+      console.log("Creating questions:", questionsList.length);
       if (questionsList.length > 0) {
-        await createQuestions(questionsList);
+        const createSuccess = await createQuestions(questionsList);
+        if (!createSuccess) {
+          throw new Error("Failed to create questions");
+        }
       }
+
+      console.log("Save successful, redirecting to dashboard");
       router.push("/dashboard");
+      router.refresh(); // Force refresh to see updated data
     } catch (error) {
       console.error("Error saving board:", error);
-      alert("Failed to save board. Please try again.");
+      alert(
+        `Failed to save board: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
       setIsSaving(false);
     }
   };
