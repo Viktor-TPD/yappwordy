@@ -508,9 +508,7 @@ export function PresentationView({
               </div>
             </div>
           </div>
-          <p className={styles.hint}>
-            Use your remote control to reveal the answer or return to the board
-          </p>
+          <p className={styles.hint}></p>
         </div>
       )}
 

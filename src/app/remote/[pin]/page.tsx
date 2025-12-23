@@ -1,4 +1,3 @@
-import { auth } from "@clerk/nextjs/server";
 import { redirect } from "next/navigation";
 import { getGameSession, getBoard, getQuestions } from "@/lib/database";
 import { RemoteControl } from "@/components/RemoteControl";
@@ -8,15 +7,20 @@ export default async function RemotePage({
 }: {
   params: { pin: string };
 }) {
-  const { userId } = await auth();
-  if (!userId) redirect("/sign-in");
-
+  // No auth check - PIN is the security token!
   const session = await getGameSession(params.pin);
-  if (!session) redirect("/dashboard");
+
+  if (!session) {
+    // Invalid PIN - redirect to home
+    redirect("/");
+  }
 
   const board = await getBoard(session.board_id);
   const questions = await getQuestions(session.board_id);
-  if (!board) redirect("/dashboard");
+
+  if (!board) {
+    redirect("/");
+  }
 
   const hasSecondRound = Boolean(session.second_board_id);
 

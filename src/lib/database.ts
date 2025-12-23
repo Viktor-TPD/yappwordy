@@ -1,6 +1,14 @@
 import { supabase } from "./supabase";
 import { Board, Question, GameSession, GameSettings } from "@/types";
 import { generateSessionPin } from "./utils";
+import { createClient } from "@supabase/supabase-js";
+
+// Create a client with service role for bypassing RLS when needed
+const supabaseAdmin = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
 
 // ============================================================================
 // BOARD OPERATIONS
@@ -45,7 +53,8 @@ export async function getBoards(userId: string): Promise<Board[]> {
 }
 
 export async function getBoard(boardId: string): Promise<Board | null> {
-  const { data, error } = await supabase
+  // Use admin client to bypass RLS for remote access via PIN
+  const { data, error } = await supabaseAdmin
     .from("boards")
     .select("*")
     .eq("id", boardId)
@@ -122,7 +131,8 @@ export async function createQuestions(
 }
 
 export async function getQuestions(boardId: string): Promise<Question[]> {
-  const { data, error } = await supabase
+  // Use admin client to bypass RLS for remote access via PIN
+  const { data, error } = await supabaseAdmin
     .from("questions")
     .select("*")
     .eq("board_id", boardId)
@@ -175,7 +185,8 @@ export async function deleteQuestions(boardId: string): Promise<boolean> {
 export async function getGameSession(
   sessionPin: string
 ): Promise<GameSession | null> {
-  const { data, error } = await supabase
+  // Use admin client to bypass RLS - PIN is the security token
+  const { data, error } = await supabaseAdmin
     .from("game_sessions")
     .select("*")
     .eq("session_pin", sessionPin)
