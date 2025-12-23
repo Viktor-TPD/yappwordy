@@ -176,8 +176,13 @@ export function PresentationView({
           if (payload.payload.contestants) {
             setContestants(payload.payload.contestants);
           }
-          // Show transition modal
+          // Show transition modal AND auto-start after delay
           setShowRoundTransition(true);
+
+          // Auto-confirm after 2.5 seconds
+          setTimeout(() => {
+            handleConfirmRound2();
+          }, 7500);
         }
       )
       .on("broadcast", { event: "sync-request" }, () => {
@@ -275,7 +280,7 @@ export function PresentationView({
     );
   }
 
-  // Round 2 transition modal
+  // Round 2 transition modal (now auto-closes after 2.5s)
   if (showRoundTransition && secondBoardName) {
     return (
       <div
@@ -303,6 +308,7 @@ export function PresentationView({
               margin: "0 0 1rem 0",
               textShadow: "0 0 40px rgba(255, 204, 0, 0.8)",
               letterSpacing: "0.1em",
+              animation: "pulse 1s infinite",
             }}
           >
             ROUND 2!
@@ -338,6 +344,16 @@ export function PresentationView({
           >
             BEGIN ROUND 2
           </button>
+          <p
+            style={{
+              marginTop: "1.5rem",
+              color: "var(--text-muted)",
+              fontSize: "1rem",
+              fontStyle: "italic",
+            }}
+          >
+            Starting automatically...
+          </p>
         </div>
       </div>
     );
